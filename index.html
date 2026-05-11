@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analizador de Defectos en Paneles Solares</title>
+  <style>
+    /* =========================================================
+       ESTILOS — CSS embebido para que todo viva en un solo fichero
+       ========================================================= */
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      background: #f5f7fa;
+      color: #1a202c;
+      line-height: 1.5;
+    }
+    header, footer {
+      background: #1e3a5f;
+      color: #fff;
+      padding: 1.5rem 1rem;
+      text-align: center;
+    }
+    header h1 { margin: 0 0 0.25rem; font-size: 1.4rem; }
+    header p { margin: 0; opacity: 0.85; font-size: 0.95rem; }
+    main {
+      max-width: 960px;
+      margin: 1.5rem auto;
+      padding: 0 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    section {
+      background: #fff;
+      padding: 1.25rem 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    h2 { margin: 0 0 0.75rem; color: #1e3a5f; font-size: 1.1rem; }
+    h3 { margin: 1rem 0 0.5rem; color: #2c5282; font-size: 1rem; }
+    label { display: block; margin: 0.5rem 0 0.25rem; font-size: 0.9rem; color: #4a5568; }
+    input[type="text"], input[type="password"], input[type="number"],
+    input[type="file"], textarea, select {
+      width: 100%;
+      padding: 0.55rem 0.7rem;
+      border: 1px solid #cbd5e0;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      background: #fff;
+    }
+    textarea { min-height: 70px; font-family: monospace; font-size: 0.85rem; }
+    button {
+      background: #2c5282;
+      color: #fff;
+      border: none;
+      padding: 0.65rem 1.3rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      margin-top: 0.5rem;
+      transition: background 0.15s;
+    }
+    button:hover:not(:disabled) { background: #1e3a5f; }
+    button:disabled { background: #a0aec0; cursor: not-allowed; }
+    .btn-secondary { background: #4a5568; }
+    .btn-secondary:hover:not(:disabled) { background: #2d3748; }
+    .btn-danger { background: #c53030; font-size: 0.8rem; padding: 0.3rem 0.6rem; margin: 0; }
+    .btn-danger:hover { background: #9b2c2c; }
+    .or-divider { color: #718096; font-size: 0.85rem; margin: 0.75rem 0 0.25rem; font-style: italic; }
+    .help { font-size: 0.8rem; color: #718096; margin: 0.25rem 0 0.5rem; }
+
+    #canvas-container {
+      margin: 1rem 0;
+      text-align: center;
+      background: #edf2f7;
+      border-radius: 4px;
+      padding: 0.5rem;
+      min-height: 60px;
+    }
+    #result-canvas { max-width: 100%; height: auto; display: none; }
+    #result-canvas.visible { display: inline-block; }
+
+    .detection {
+      padding: 0.7rem 0.9rem;
+      background: #ebf8ff;
+      border-left: 4px solid #2c5282;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+    }
+    .detection-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+    .detection-label { font-weight: 600; color: #1e3a5f; }
+    .detection-badge {
+      font-family: monospace;
+      background: #2c5282;
+      color: #fff;
+      padding: 0.15rem 0.5rem;
+      border-radius: 3px;
+      font-size: 0.8rem;
+    }
+    .detection-desc { color: #4a5568; font-size: 0.88rem; margin-top: 0.3rem; }
+
+    #status {
+      padding: 0.6rem 0.9rem;
+      margin: 0.5rem 0;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      display: none;
+    }
+    #status.visible { display: block; }
+    .status-info  { background: #ebf8ff; color: #2c5282; }
+    .status-error { background: #fed7d7; color: #9b2c2c; }
+    .status-loading { background: #fefcbf; color: #744210; }
+    .status-success { background: #c6f6d5; color: #22543d; }
+
+    details { margin-bottom: 0; }
+    details summary {
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1.05rem;
+      color: #1e3a5f;
+      padding: 0.25rem 0;
+      user-select: none;
+    }
+    details[open] summary { margin-bottom: 0.75rem; }
+
+    #model-list { list-style: none; padding: 0; margin: 0.5rem 0; }
+    #model-list li {
+      background: #f7fafc;
+      padding: 0.55rem 0.75rem;
+      margin: 0.3rem 0;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    @media (max-width: 600px) { .row { grid-template-columns: 1fr; } }
+
+    .slider-row { display: flex; align-items: center; gap: 0.75rem; }
+    .slider-row input[type="range"] { flex: 1; }
+    .slider-row span { font-family: monospace; min-width: 3em; text-align: right; }
+
+    footer { font-size: 0.85rem; padding: 1rem; opacity: 0.9; }
+    footer a { color: #cbd5e0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🌞 Analizador de Defectos en Paneles Solares</h1>
+  <p>Inferencia automática mediante modelos de Roboflow · TFM UNIR</p>
+</header>
+
+<main>
+
+  <!-- ===== Sección de configuración (admin) ===== -->
+  <section>
+    <details id="admin-panel">
+      <summary>⚙️ Configuración (administrador)</summary>
+
+      <h3>1) API Key privada de Roboflow</h3>
+      <p class="help">La obtienes en <code>roboflow.com → Settings → API Keys</code>. Se guarda solo en este navegador (localStorage).</p>
+      <input type="password" id="api-key" placeholder="Pega aquí tu Private API Key" autocomplete="off" />
+      <button id="save-api-key">Guardar API Key</button>
+
+      <h3>2) Modelos disponibles</h3>
+      <ul id="model-list"></ul>
+
+      <h3>3) Añadir un nuevo modelo</h3>
+      <p class="help">Datos sacados de la URL del proyecto en Roboflow. Ejemplo de URL: <code>universe.roboflow.com/<b>solar-panel-iewzf</b>/<b>solar-panel-w3f7s</b>/model/<b>7</b></code></p>
+
+      <label>Nombre para mostrar al usuario</label>
+      <input type="text" id="new-name" placeholder="ej. Defectos RGB - v7" />
+
+      <div class="row">
+        <div>
+          <label>Workspace (informativo)</label>
+          <input type="text" id="new-workspace" placeholder="ej. solar-panel-iewzf" />
+        </div>
+        <div>
+          <label>Project ID (slug)</label>
+          <input type="text" id="new-project" placeholder="ej. solar-panel-w3f7s" />
+        </div>
+      </div>
+
+      <label>Versión</label>
+      <input type="number" id="new-version" placeholder="ej. 7" min="1" />
+
+      <label>Descripciones por clase (opcional, formato JSON)</label>
+      <p class="help">Ej: <code>{"hotspot": "Punto caliente — posible cortocircuito", "soiling": "Suciedad sobre el panel"}</code></p>
+      <textarea id="new-descriptions" placeholder='{"clase1": "descripción..."}'></textarea>
+
+      <button id="add-model">Añadir modelo</button>
+    </details>
+  </section>
+
+  <!-- ===== Sección de entrada ===== -->
+  <section>
+    <h2>1. Selecciona el modelo</h2>
+    <select id="model-selector">
+      <option value="">— Selecciona un modelo configurado —</option>
+    </select>
+
+    <h2 style="margin-top:1.25rem">2. Aporta la imagen</h2>
+    <label>Subir un fichero de imagen</label>
+    <input type="file" id="image-file" accept="image/*" />
+    <p class="or-divider">— o bien (opcional) —</p>
+    <label>Pegar la URL de una imagen pública</label>
+    <input type="text" id="image-url" placeholder="https://..." />
+
+    <h2 style="margin-top:1.25rem">3. Ajustes</h2>
+    <label>Umbral mínimo de confianza</label>
+    <div class="slider-row">
+      <input type="range" id="confidence" min="1" max="99" value="40" />
+      <span id="conf-display">40 %</span>
+    </div>
+
+    <button id="analyze-btn" disabled>Analizar imagen</button>
+  </section>
+
+  <!-- ===== Sección de resultados ===== -->
+  <section>
+    <h2>Resultado del análisis</h2>
+    <div id="status"></div>
+    <div id="canvas-container">
+      <canvas id="result-canvas"></canvas>
+    </div>
+    <div id="detections-list"></div>
+  </section>
+
+</main>
+
+<footer>
+  <p>Proyecto TFM · Diagnóstico de fallos en paneles fotovoltaicos · UNIR 2026</p>
+</footer>
+
+<script>
+/* =========================================================
+   LÓGICA JS — todo embebido para simplificar el despliegue
+   ========================================================= */
+
+// ---- 1) Almacenamiento (localStorage) -------------------
+const KEYS = { apiKey: "rf_api_key", models: "rf_models" };
+
+const loadModels = () => JSON.parse(localStorage.getItem(KEYS.models) || "[]");
+const saveModels = (m) => localStorage.setItem(KEYS.models, JSON.stringify(m));
+const loadApiKey = () => localStorage.getItem(KEYS.apiKey) || "";
+const saveApiKey = (k) => localStorage.setItem(KEYS.apiKey, k);
+
+// ---- 2) Referencias al DOM -------------------------------
+const $ = (id) => document.getElementById(id);
+const apiKeyInput     = $("api-key");
+const saveApiBtn      = $("save-api-key");
+const modelListUl     = $("model-list");
+const newName         = $("new-name");
+const newWorkspace    = $("new-workspace");
+const newProject      = $("new-project");
+const newVersion      = $("new-version");
+const newDescriptions = $("new-descriptions");
+const addModelBtn     = $("add-model");
+const modelSelector   = $("model-selector");
+const imageFile       = $("image-file");
+const imageUrl        = $("image-url");
+const confidence      = $("confidence");
+const confDisplay     = $("conf-display");
+const analyzeBtn      = $("analyze-btn");
+const statusBox       = $("status");
+const canvas          = $("result-canvas");
+const ctx             = canvas.getContext("2d");
+const detectionsList  = $("detections-list");
+
+// ---- 3) Helpers de UI ------------------------------------
+function setStatus(msg, type = "info") {
+  statusBox.textContent = msg;
+  statusBox.className = "visible status-" + type;
+}
+function clearStatus() { statusBox.className = ""; }
+
+function renderModelList() {
+  const models = loadModels();
+  modelListUl.innerHTML = "";
+  if (models.length === 0) {
+    modelListUl.innerHTML = '<li style="font-style:italic;color:#718096;">Sin modelos configurados todavía.</li>';
+    return;
+  }
+  models.forEach((m, idx) => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <span><b>${escapeHtml(m.name)}</b> &nbsp;<small style="color:#718096">${escapeHtml(m.workspace || "")}/${escapeHtml(m.project)} · v${m.version}</small></span>
+      <button class="btn-danger" data-idx="${idx}">Eliminar</button>
+    `;
+    modelListUl.appendChild(li);
+  });
+  modelListUl.querySelectorAll(".btn-danger").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = parseInt(btn.dataset.idx, 10);
+      const ms = loadModels();
+      if (confirm(`¿Eliminar el modelo "${ms[i].name}"?`)) {
+        ms.splice(i, 1);
+        saveModels(ms);
+        renderModelList();
+        renderModelSelector();
+        updateAnalyzeState();
+      }
+    });
+  });
+}
+
+function renderModelSelector() {
+  const models = loadModels();
+  const current = modelSelector.value;
+  modelSelector.innerHTML = '<option value="">— Selecciona un modelo configurado —</option>';
+  models.forEach((m, idx) => {
+    const opt = document.createElement("option");
+    opt.value = idx;
+    opt.textContent = m.name;
+    modelSelector.appendChild(opt);
+  });
+  if (current !== "" && parseInt(current, 10) < models.length) {
+    modelSelector.value = current;
+  }
+}
+
+function updateAnalyzeState() {
+  const hasModel  = modelSelector.value !== "";
+  const hasImage  = imageFile.files.length > 0 || imageUrl.value.trim() !== "";
+  const hasApiKey = loadApiKey().trim() !== "";
+  analyzeBtn.disabled = !(hasModel && hasImage && hasApiKey);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+// Color consistente por clase (hash → paleta)
+function colorForClass(cls) {
+  const palette = ["#e53e3e","#dd6b20","#d69e2e","#38a169","#319795","#3182ce","#805ad5","#d53f8c"];
+  let h = 0;
+  for (let i = 0; i < cls.length; i++) h = cls.charCodeAt(i) + ((h << 5) - h);
+  return palette[Math.abs(h) % palette.length];
+}
+
+// ---- 4) Event handlers de admin --------------------------
+saveApiBtn.addEventListener("click", () => {
+  saveApiKey(apiKeyInput.value.trim());
+  setStatus("API Key guardada en este navegador.", "success");
+  updateAnalyzeState();
+});
+
+addModelBtn.addEventListener("click", () => {
+  const name      = newName.value.trim();
+  const workspace = newWorkspace.value.trim();
+  const project   = newProject.value.trim();
+  const version   = parseInt(newVersion.value, 10);
+  const descRaw   = newDescriptions.value.trim();
+
+  if (!name || !project || !version) {
+    setStatus("Faltan campos obligatorios: nombre, project y versión.", "error");
+    return;
+  }
+  let descriptions = {};
+  if (descRaw) {
+    try { descriptions = JSON.parse(descRaw); }
+    catch (e) { setStatus("El JSON de descripciones no es válido.", "error"); return; }
+  }
+  const models = loadModels();
+  models.push({ name, workspace, project, version, descriptions });
+  saveModels(models);
+
+  newName.value = ""; newWorkspace.value = ""; newProject.value = "";
+  newVersion.value = ""; newDescriptions.value = "";
+  renderModelList();
+  renderModelSelector();
+  setStatus(`Modelo "${name}" añadido.`, "success");
+});
+
+// ---- 5) Event handlers de entrada ------------------------
+confidence.addEventListener("input", () => {
+  confDisplay.textContent = confidence.value + " %";
+});
+modelSelector.addEventListener("change", updateAnalyzeState);
+imageFile.addEventListener("change", updateAnalyzeState);
+imageUrl.addEventListener("input", updateAnalyzeState);
+
+// ---- 6) Análisis -----------------------------------------
+analyzeBtn.addEventListener("click", runInference);
+
+async function runInference() {
+  const models = loadModels();
+  const model  = models[parseInt(modelSelector.value, 10)];
+  const apiKey = loadApiKey();
+  const conf   = parseInt(confidence.value, 10);
+
+  detectionsList.innerHTML = "";
+  canvas.classList.remove("visible");
+  setStatus("Enviando imagen a Roboflow...", "loading");
+  analyzeBtn.disabled = true;
+
+  try {
+    // -- Endpoint hosted inference de Roboflow
+    //    docs.roboflow.com/deploy/hosted-api/object-detection
+    const base = `https://detect.roboflow.com/${encodeURIComponent(model.project)}/${model.version}`;
+    const qs = new URLSearchParams({
+      api_key: apiKey,
+      confidence: String(conf),
+      format: "json"
+    });
+
+    let response, displaySrc;
+    if (imageFile.files.length > 0) {
+      // 6a) Imagen subida como fichero → mandamos base64 en el body
+      const file = imageFile.files[0];
+      const b64  = await fileToBase64(file);
+      displaySrc = URL.createObjectURL(file);
+      response = await fetch(`${base}?${qs.toString()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: b64
+      });
+    } else {
+      // 6b) URL de imagen → Roboflow la descarga por nosotros
+      const url = imageUrl.value.trim();
+      qs.set("image", url);
+      displaySrc = url;
+      response = await fetch(`${base}?${qs.toString()}`, { method: "POST" });
+    }
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`HTTP ${response.status} — ${errText.slice(0, 300)}`);
+    }
+    const result = await response.json();
+
+    await drawResults(displaySrc, result, model.descriptions || {});
+
+    const n = (result.predictions || []).length;
+    if (n === 0) {
+      setStatus("Análisis completado. Sin detecciones por encima del umbral.", "info");
+    } else {
+      setStatus(`Análisis completado. ${n} detección(es).`, "success");
+    }
+  } catch (err) {
+    setStatus("Error: " + err.message, "error");
+    console.error(err);
+  } finally {
+    updateAnalyzeState();
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload  = () => resolve(r.result.split(",")[1]); // sin prefijo data:image/...
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+function drawResults(src, result, descriptions) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      canvas.width  = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      const preds = result.predictions || [];
+      const fontSize = Math.max(14, Math.round(img.width / 70));
+
+      preds.forEach((p) => {
+        // Roboflow devuelve (x, y) como CENTRO del bounding box
+        const x = p.x - p.width / 2;
+        const y = p.y - p.height / 2;
+        const color = colorForClass(p.class);
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth   = Math.max(2, Math.round(img.width / 400));
+        ctx.strokeRect(x, y, p.width, p.height);
+
+        const label = `${p.class} ${(p.confidence * 100).toFixed(0)}%`;
+        ctx.font     = `bold ${fontSize}px sans-serif`;
+        const m      = ctx.measureText(label);
+        const tH     = fontSize + 6;
+        ctx.fillStyle = color;
+        ctx.fillRect(x, Math.max(0, y - tH), m.width + 10, tH);
+        ctx.fillStyle = "#fff";
+        ctx.fillText(label, x + 5, Math.max(fontSize + 1, y - 4));
+      });
+      canvas.classList.add("visible");
+
+      // Lista agrupada por clase
+      detectionsList.innerHTML = "";
+      if (preds.length === 0) {
+        detectionsList.innerHTML = '<p style="color:#718096;font-style:italic;">Sin detecciones por encima del umbral. Prueba a bajar la confianza.</p>';
+      } else {
+        const grouped = {};
+        preds.forEach(p => {
+          (grouped[p.class] ||= []).push(p.confidence);
+        });
+        for (const [cls, confs] of Object.entries(grouped)) {
+          const max  = (Math.max(...confs) * 100).toFixed(1);
+          const avg  = ((confs.reduce((a,b)=>a+b,0) / confs.length) * 100).toFixed(1);
+          const desc = descriptions[cls] || "";
+          const color = colorForClass(cls);
+          const div = document.createElement("div");
+          div.className = "detection";
+          div.style.borderLeftColor = color;
+          div.innerHTML = `
+            <div class="detection-row">
+              <span class="detection-label">${escapeHtml(cls)}</span>
+              <span class="detection-badge">${confs.length} detección(es)</span>
+              <span class="detection-badge" style="background:${color}">max ${max}%</span>
+              <span class="detection-badge" style="background:#4a5568">avg ${avg}%</span>
+            </div>
+            ${desc ? `<div class="detection-desc">${escapeHtml(desc)}</div>` : ""}
+          `;
+          detectionsList.appendChild(div);
+        }
+      }
+      resolve();
+    };
+    img.onerror = () => {
+      setStatus("No se pudo mostrar la imagen en el lienzo (puede ser un problema de CORS si usaste una URL externa). Los resultados numéricos siguen siendo válidos.", "info");
+      resolve();
+    };
+    img.src = src;
+  });
+}
+
+// ---- 7) Inicialización -----------------------------------
+(function init() {
+  apiKeyInput.value = loadApiKey();
+  renderModelList();
+  renderModelSelector();
+  updateAnalyzeState();
+})();
+</script>
+
+</body>
+</html>
